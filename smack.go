@@ -13,6 +13,7 @@ import (
   "bytes"
   "io"
   "sort"
+  "io/ioutil"
 )
 
 type Options struct {
@@ -47,21 +48,32 @@ type Result struct {
   err error
   status int
   t int64
+  size int
 }
 
-func smack(url string, die bool) (bool, int64, int, error) {
+func smack(url string, die bool) (bool, int64, int, int, error) {
   beginT := time.Now().UnixNano()
   resp, err := http.Get(url)
-  totalT := time.Now().UnixNano() - beginT
-  if (err != nil) {
+  if err != nil {
+    totalT := time.Now().UnixNano() - beginT
     Verbose("ERROR: could not hit "+url+" - "+err.Error())
-    if (die) {
+    if die {
       panic("ERROR: could not hit "+url+" - "+err.Error())
     }
-    return false, totalT, -1, err
+    return false, totalT, -1, 0, err
   }
   defer resp.Body.Close()
-  return (resp.StatusCode == 200), totalT, resp.StatusCode, nil
+  body, err := ioutil.ReadAll(resp.Body)
+  if err != nil {
+    totalT := time.Now().UnixNano() - beginT
+    Verbose("ERROR: could not hit "+url+" - "+err.Error())
+    if die {
+      panic("ERROR: could not hit "+url+" - "+err.Error())
+    }
+    return false, totalT, resp.StatusCode, 0, err
+  }
+  totalT := time.Now().UnixNano() - beginT
+  return (resp.StatusCode == 200), totalT, resp.StatusCode, len(body), nil
 }
 
 func counter(opts *Options, request chan chan bool, die chan uint64) {
@@ -95,6 +107,8 @@ type PrintableResult struct {
   count uint64
   totalT float64
   times []float64
+  totalSize uint64
+  avgSize float64
   min float64
   p25 float64
   p50 float64
@@ -116,23 +130,26 @@ func createPrintableResult(slice []*Result) *PrintableResult {
   pr.count = uint64(0)
   pr.totalT = float64(0)
   pr.times = []float64{}
+  pr.totalSize = uint64(0)
   for _, result := range slice {
     pr.count++
     pr.totalT += float64(result.t)
     pr.times = append(pr.times, float64(result.t))
+    pr.totalSize += uint64(result.size)
   }
+  pr.avgSize = float64(pr.totalSize)/float64(pr.count)
   sort.Float64s(pr.times)
   pr.min = pr.times[0]
-  pr.p25 = pr.times[int(float64(25.0/100.0)*float64(len(pr.times)))]
-  pr.p50 = pr.times[int(float64(50.0/100.0)*float64(len(pr.times)))]
-  pr.avg = pr.totalT/float64(len(pr.times))
-  pr.p75 = pr.times[int(float64(75.0/100.0)*float64(len(pr.times)))]
-  pr.p80 = pr.times[int(float64(80.0/100.0)*float64(len(pr.times)))]
-  pr.p85 = pr.times[int(float64(85.0/100.0)*float64(len(pr.times)))]
-  pr.p90 = pr.times[int(float64(90.0/100.0)*float64(len(pr.times)))]
-  pr.p95 = pr.times[int(float64(95.0/100.0)*float64(len(pr.times)))]
-  pr.p99 = pr.times[int(float64(99.0/100.0)*float64(len(pr.times)))]
-  pr.max = pr.times[len(pr.times)-1]
+  pr.p25 = pr.times[int(float64(25.0/100.0)*float64(pr.count))]
+  pr.p50 = pr.times[int(float64(50.0/100.0)*float64(pr.count))]
+  pr.avg = pr.totalT/float64(pr.count)
+  pr.p75 = pr.times[int(float64(75.0/100.0)*float64(pr.count))]
+  pr.p80 = pr.times[int(float64(80.0/100.0)*float64(pr.count))]
+  pr.p85 = pr.times[int(float64(85.0/100.0)*float64(pr.count))]
+  pr.p90 = pr.times[int(float64(90.0/100.0)*float64(pr.count))]
+  pr.p95 = pr.times[int(float64(95.0/100.0)*float64(pr.count))]
+  pr.p99 = pr.times[int(float64(99.0/100.0)*float64(pr.count))]
+  pr.max = pr.times[pr.count-1]
   return &pr
 }
 
@@ -175,6 +192,8 @@ func printResults(results map[int][]*Result) {
       Info("  count         : %d", pr.count)
       Info("  average time  : %f ms", pr.avg/1000000.0)
       Info("  combined time : %f ms", pr.totalT/1000000.0)
+      Info("  average size  : %f bytes", pr.avgSize)
+      Info("  combined size : %d bytes", pr.totalSize)
       Info("")
       Info("  min : %f ms", pr.min/1000000.0)
       Info("  p25 : %f ms", pr.p25/1000000.0)
@@ -235,8 +254,8 @@ func user(opts *Options, num uint64, counter chan chan bool, res chan *Result, u
       close(ch)
       return
     }
-    ok, t, status, err := smack(<-urls, opts.die)
-    res <-&Result{done: false, ok: ok, t: t, status: status, err: err}
+    ok, t, status, size, err := smack(<-urls, opts.die)
+    res <-&Result{done: false, ok: ok, t: t, status: status, size: size, err: err}
   }
 }
 
