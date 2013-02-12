@@ -88,7 +88,7 @@ func counter(opts *Options, request chan chan bool, die chan uint64) {
       } else {
         resp <-false
         i++
-        if i%(opts.n/10) == 0 {
+        if (opts.n >= 10 && i%(opts.n/10) == 0) {
           Verbose("%d requests complete", i)
         }
       }
@@ -311,7 +311,13 @@ func main() {
     if strings.HasPrefix(urlOrFile, "http://") || strings.HasPrefix(urlOrFile, "https://") {
       opts.urls = append(opts.urls, urlOrFile)
     } else {
-      // assume file
+      urls, err := readLines(urlOrFile)
+      if err != nil {
+        Fatal("ERROR: invalid file: %s", err.Error())
+      }
+      for _, url := range(urls) {
+        opts.urls = append(opts.urls, url)
+      }
     }
   }
 
