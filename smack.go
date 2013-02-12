@@ -1,27 +1,27 @@
 package main
 
 import (
-  "net/http"
-  "time"
-  "fmt"
-  "runtime"
-  "flag"
-  "strings"
-  "os"
-  "math/rand"
   "bufio"
   "bytes"
+  "flag"
+  "fmt"
   "io"
-  "sort"
   "io/ioutil"
+  "math/rand"
+  "net/http"
+  "os"
+  "runtime"
+  "sort"
+  "strings"
+  "time"
 )
 
 type Options struct {
-  n uint64
-  c uint64
-  urls []string
+  n      uint64
+  c      uint64
+  urls   []string
   random bool
-  die bool
+  die    bool
 }
 
 var verbose = false
@@ -36,19 +36,19 @@ func Fatal(format string, a ...interface{}) {
 }
 
 func Verbose(format string, a ...interface{}) {
-  if (!verbose) {
+  if !verbose {
     return
   }
   fmt.Printf(format+"\n", a...)
 }
 
 type Result struct {
-  done bool
-  ok bool
-  err error
+  done   bool
+  ok     bool
+  err    error
   status int
-  t int64
-  size int
+  t      int64
+  size   int
 }
 
 func smack(url string, die bool) (bool, int64, int, int, error) {
@@ -56,9 +56,9 @@ func smack(url string, die bool) (bool, int64, int, int, error) {
   resp, err := http.Get(url)
   if err != nil {
     totalT := time.Now().UnixNano() - beginT
-    Verbose("ERROR: could not hit "+url+" - "+err.Error())
+    Verbose("ERROR: could not hit " + url + " - " + err.Error())
     if die {
-      panic("ERROR: could not hit "+url+" - "+err.Error())
+      panic("ERROR: could not hit " + url + " - " + err.Error())
     }
     return false, totalT, -1, 0, err
   }
@@ -66,9 +66,9 @@ func smack(url string, die bool) (bool, int64, int, int, error) {
   body, err := ioutil.ReadAll(resp.Body)
   if err != nil {
     totalT := time.Now().UnixNano() - beginT
-    Verbose("ERROR: could not hit "+url+" - "+err.Error())
+    Verbose("ERROR: could not hit " + url + " - " + err.Error())
     if die {
-      panic("ERROR: could not hit "+url+" - "+err.Error())
+      panic("ERROR: could not hit " + url + " - " + err.Error())
     }
     return false, totalT, resp.StatusCode, 0, err
   }
@@ -82,44 +82,44 @@ func counter(opts *Options, request chan chan bool, die chan uint64) {
   for {
     if j < opts.c {
       resp := <-request
-      if (i >= opts.n) {
-        resp <-true
+      if i >= opts.n {
+        resp <- true
         j++
       } else {
-        resp <-false
+        resp <- false
         i++
-        if (opts.n >= 10 && i%(opts.n/10) == 0) {
+        if opts.n >= 10 && i%(opts.n/10) == 0 {
           Verbose("%d requests complete", i)
         }
       }
     } else {
-      if (i >= opts.n) {
-        die <-opts.n
+      if i >= opts.n {
+        die <- opts.n
         return
       }
-      die <-i
+      die <- i
       return
     }
   }
 }
 
 type PrintableResult struct {
-  count uint64
-  totalT float64
-  times []float64
+  count     uint64
+  totalT    float64
+  times     []float64
   totalSize uint64
-  avgSize float64
-  min float64
-  p25 float64
-  p50 float64
-  avg float64
-  p75 float64
-  p80 float64
-  p85 float64
-  p90 float64
-  p95 float64
-  p99 float64
-  max float64
+  avgSize   float64
+  min       float64
+  p25       float64
+  p50       float64
+  avg       float64
+  p75       float64
+  p80       float64
+  p85       float64
+  p90       float64
+  p95       float64
+  p99       float64
+  max       float64
 }
 
 func createPrintableResult(slice []*Result) *PrintableResult {
@@ -137,12 +137,12 @@ func createPrintableResult(slice []*Result) *PrintableResult {
     pr.times = append(pr.times, float64(result.t))
     pr.totalSize += uint64(result.size)
   }
-  pr.avgSize = float64(pr.totalSize)/float64(pr.count)
+  pr.avgSize = float64(pr.totalSize) / float64(pr.count)
   sort.Float64s(pr.times)
   pr.min = pr.times[0]
   pr.p25 = pr.times[int(float64(25.0/100.0)*float64(pr.count))]
   pr.p50 = pr.times[int(float64(50.0/100.0)*float64(pr.count))]
-  pr.avg = pr.totalT/float64(pr.count)
+  pr.avg = pr.totalT / float64(pr.count)
   pr.p75 = pr.times[int(float64(75.0/100.0)*float64(pr.count))]
   pr.p80 = pr.times[int(float64(80.0/100.0)*float64(pr.count))]
   pr.p85 = pr.times[int(float64(85.0/100.0)*float64(pr.count))]
@@ -156,15 +156,15 @@ func createPrintableResult(slice []*Result) *PrintableResult {
 func printResults(results map[int][]*Result) {
   // compute results
   Info("")
-  for key, slice := range(results) {
-    if (key < 0) {
+  for key, slice := range results {
+    if key < 0 {
       Info("ERRORS")
       pr := createPrintableResult(slice)
       Info("  count         : %d", pr.count)
       Info("  average time  : %f ms", pr.avg/1000000.0)
       Info("  combined time : %f ms", pr.totalT/1000000.0)
       counts := make(map[string]uint64)
-      for _, result := range(slice) {
+      for _, result := range slice {
         count, ok := counts[result.err.Error()]
         if !ok {
           counts[result.err.Error()] = 1
@@ -215,7 +215,7 @@ func results(opts *Options, result chan *Result, done chan bool) {
     res := <-result
     if res.done {
       printResults(results)
-      done <-true
+      done <- true
       return
     }
     slice, ok := results[res.status]
@@ -228,7 +228,7 @@ func results(opts *Options, result chan *Result, done chan bool) {
 }
 
 func urls(opts *Options, out chan string) {
-  if (opts.random) {
+  if opts.random {
     rand.Seed(time.Now().UnixNano())
     for {
       out <- opts.urls[rand.Intn(len(opts.urls))]
@@ -238,7 +238,7 @@ func urls(opts *Options, out chan string) {
     for {
       out <- opts.urls[i]
       i++
-      if (i >= len(opts.urls)) {
+      if i >= len(opts.urls) {
         i = 0
       }
     }
@@ -255,36 +255,36 @@ func user(opts *Options, num uint64, counter chan chan bool, res chan *Result, u
       return
     }
     ok, t, status, size, err := smack(<-urls, opts.die)
-    res <-&Result{done: false, ok: ok, t: t, status: status, size: size, err: err}
+    res <- &Result{done: false, ok: ok, t: t, status: status, size: size, err: err}
   }
 }
 
 func readLines(path string) (lines []string, err error) {
-    var (
-        file *os.File
-        part []byte
-        prefix bool
-    )
-    if file, err = os.Open(path); err != nil {
-        return
-    }
-    defer file.Close()
-    reader := bufio.NewReader(file)
-    buffer := bytes.NewBuffer(make([]byte, 0))
-    for {
-        if part, prefix, err = reader.ReadLine(); err != nil {
-            break
-        }
-        buffer.Write(part)
-        if !prefix {
-            lines = append(lines, buffer.String())
-            buffer.Reset()
-        }
-    }
-    if err == io.EOF {
-        err = nil
-    }
+  var (
+    file   *os.File
+    part   []byte
+    prefix bool
+  )
+  if file, err = os.Open(path); err != nil {
     return
+  }
+  defer file.Close()
+  reader := bufio.NewReader(file)
+  buffer := bytes.NewBuffer(make([]byte, 0))
+  for {
+    if part, prefix, err = reader.ReadLine(); err != nil {
+      break
+    }
+    buffer.Write(part)
+    if !prefix {
+      lines = append(lines, buffer.String())
+      buffer.Reset()
+    }
+  }
+  if err == io.EOF {
+    err = nil
+  }
+  return
 }
 
 func main() {
@@ -315,7 +315,7 @@ func main() {
       if err != nil {
         Fatal("ERROR: invalid file: %s", err.Error())
       }
-      for _, url := range(urls) {
+      for _, url := range urls {
         opts.urls = append(opts.urls, url)
       }
     }
@@ -335,13 +335,13 @@ func main() {
     go user(&opts, i, counterCh, resultCh, urlsCh)
   }
   <-counterDoneCh
-  totalT := time.Now().UnixNano()-beginT
+  totalT := time.Now().UnixNano() - beginT
   close(counterCh)
   close(counterDoneCh)
-  resultCh <-&Result{done: true}
+  resultCh <- &Result{done: true}
   <-resultDoneCh
   Info("")
-  Info("requsts took %f seconds", (float64(totalT)/1000000000.0))
+  Info("requsts took %f seconds", (float64(totalT) / 1000000000.0))
   Info("%f requests/sec", float64(opts.n)/(float64(totalT)/1000000000.0))
   close(resultCh)
   close(resultDoneCh)
