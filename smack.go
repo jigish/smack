@@ -287,11 +287,22 @@ func readLines(path string) (lines []string, err error) {
   return
 }
 
+func usage() {
+    fmt.Printf("%s [options] (url|file)+\n", os.Args[0])
+    fmt.Print("(url|file)+: a space separated list of urls and/or files containing a newline separated list of urls")
+    fmt.Print("options:\n")
+    fmt.Print(" -n: (uint var) the total number of smacks\n")
+    fmt.Print(" -c: (uint var) the number of users smacking (concurrency)\n")
+    fmt.Print(" -r: (bool flag) if specified, will pick a random url from those specified for each request\n")
+    fmt.Print(" -v: (bool flag) if specified, will output more information. useful for debugging but hinders performance\n")
+    fmt.Print(" -p: (bool flag) if specified, smack will panic if an error (not bad http status) occurs while trying to request a url\n")
+    fmt.Printf("e.g. \"%s -n 10000 -c 100 -r /tmp/urls.txt\" will smack the urls in /tmp/urls.txt randomly for a total number of 10000 requests with 100 users smacking at a time.\n", os.Args[0])
+}
+
 func main() {
   // make sure we use all our CPUs
   runtime.GOMAXPROCS(runtime.NumCPU())
 
-  Info("Preparing Smacker...")
   // parse flags
   opts := Options{}
   flag.Uint64Var(&opts.n, "n", uint64(1), "number of requests")
@@ -299,12 +310,13 @@ func main() {
   flag.BoolVar(&opts.random, "r", false, "randomize the urls")
   flag.BoolVar(&verbose, "v", false, "verbose (hinders performance numbers)")
   flag.BoolVar(&opts.die, "p", false, "panic if error")
-  // flag.Usage = usage
+  flag.Usage = usage
   flag.Parse()
   if flag.NArg() == 0 {
     flag.Usage()
     Fatal("ERROR: no urls or files specified")
   }
+  Info("Preparing Smacker...")
   urlsOrFiles := flag.Args()
   opts.urls = []string{}
   for _, urlOrFile := range urlsOrFiles {
