@@ -289,7 +289,7 @@ func readLines(path string) (lines []string, err error) {
 
 func usage() {
     fmt.Printf("%s [options] (url|file)+\n", os.Args[0])
-    fmt.Print("(url|file)+: a space separated list of urls and/or files containing a newline separated list of urls")
+    fmt.Print("(url|file)+: a space separated list of urls and/or files containing a newline separated list of urls\n")
     fmt.Print("options:\n")
     fmt.Print(" -n: (uint var) the total number of smacks\n")
     fmt.Print(" -c: (uint var) the number of users smacking (concurrency)\n")
