@@ -17,6 +17,7 @@ import (
 )
 
 type Options struct {
+  t      int64
   n      uint64
   c      uint64
   urls   []string
@@ -79,6 +80,25 @@ func smack(url string, die bool) (bool, int64, int, int, error) {
 func counter(opts *Options, request chan chan bool, die chan uint64) {
   i := uint64(0)
   j := uint64(0)
+  if opts.t > 0 {
+    beginT := time.Now().Unix()
+    for {
+      if j < opts.c {
+        resp := <-request
+        currT := time.Now().Unix()
+        if (currT - beginT > opts.t) {
+          resp <- true
+          j++
+        } else {
+          resp <- false
+          i++
+        }
+      } else {
+        die <- i
+        return
+      }
+    }
+  }
   for {
     if j < opts.c {
       resp := <-request
@@ -291,6 +311,7 @@ func usage() {
     fmt.Printf("%s [options] (url|file)+\n", os.Args[0])
     fmt.Print("(url|file)+: a space separated list of urls and/or files containing a newline separated list of urls\n")
     fmt.Print("options:\n")
+    fmt.Print(" -t: (int var) the number of seconds to continue smacking. if this is specified, -n is ignored\n")
     fmt.Print(" -n: (uint var) the total number of smacks\n")
     fmt.Print(" -c: (uint var) the number of users smacking (concurrency)\n")
     fmt.Print(" -r: (bool flag) if specified, will pick a random url from those specified for each request\n")
@@ -306,6 +327,7 @@ func main() {
   // parse flags
   opts := Options{}
   flag.Uint64Var(&opts.n, "n", uint64(1), "number of requests")
+  flag.Int64Var(&opts.t, "t", int64(0), "number of seconds to smack")
   flag.Uint64Var(&opts.c, "c", uint64(1), "concurrency")
   flag.BoolVar(&opts.random, "r", false, "randomize the urls")
   flag.BoolVar(&verbose, "v", false, "verbose (hinders performance numbers)")
@@ -333,20 +355,20 @@ func main() {
     }
   }
 
-  Info("Smacking things...")
   counterCh := make(chan chan bool)
   counterDoneCh := make(chan uint64)
   resultCh := make(chan *Result)
   resultDoneCh := make(chan bool)
   urlsCh := make(chan string)
-  go counter(&opts, counterCh, counterDoneCh)
-  go results(&opts, resultCh, resultDoneCh)
   go urls(&opts, urlsCh)
+  go results(&opts, resultCh, resultDoneCh)
+  go counter(&opts, counterCh, counterDoneCh)
+  Info("Smacking things...")
   beginT := time.Now().UnixNano()
   for i := uint64(0); i < opts.c; i++ {
     go user(&opts, i, counterCh, resultCh, urlsCh)
   }
-  <-counterDoneCh
+  numRequests := <-counterDoneCh
   totalT := time.Now().UnixNano() - beginT
   close(counterCh)
   close(counterDoneCh)
@@ -354,7 +376,7 @@ func main() {
   <-resultDoneCh
   Info("")
   Info("requsts took %f seconds", (float64(totalT) / 1000000000.0))
-  Info("%f requests/sec", float64(opts.n)/(float64(totalT)/1000000000.0))
+  Info("%f requests/sec", float64(numRequests)/(float64(totalT)/1000000000.0))
   close(resultCh)
   close(resultDoneCh)
 }
