@@ -86,7 +86,7 @@ func counter(opts *Options, request chan chan bool, die chan uint64) {
       if j < opts.c {
         resp := <-request
         currT := time.Now().Unix()
-        if (currT - beginT > opts.t) {
+        if currT-beginT > opts.t {
           resp <- true
           j++
         } else {
@@ -308,16 +308,16 @@ func readLines(path string) (lines []string, err error) {
 }
 
 func usage() {
-    fmt.Printf("%s [options] (url|file)+\n", os.Args[0])
-    fmt.Print("(url|file)+: a space separated list of urls and/or files containing a newline separated list of urls\n")
-    fmt.Print("options:\n")
-    fmt.Print(" -t: (int var) the number of seconds to continue smacking. if this is specified, -n is ignored\n")
-    fmt.Print(" -n: (uint var) the total number of smacks\n")
-    fmt.Print(" -c: (uint var) the number of users smacking (concurrency)\n")
-    fmt.Print(" -r: (bool flag) if specified, will pick a random url from those specified for each request\n")
-    fmt.Print(" -v: (bool flag) if specified, will output more information. useful for debugging but hinders performance\n")
-    fmt.Print(" -p: (bool flag) if specified, smack will panic if an error (not bad http status) occurs while trying to request a url\n")
-    fmt.Printf("e.g. \"%s -n 10000 -c 100 -r /tmp/urls.txt\" will smack the urls in /tmp/urls.txt randomly for a total number of 10000 requests with 100 users smacking at a time.\n", os.Args[0])
+  fmt.Printf("%s [options] (url|file)+\n", os.Args[0])
+  fmt.Print("(url|file)+: a space separated list of urls and/or files containing a newline separated list of urls\n")
+  fmt.Print("options:\n")
+  fmt.Print(" -t: (int var) the number of seconds to continue smacking. if this is specified, -n is ignored\n")
+  fmt.Print(" -n: (uint var) the total number of smacks\n")
+  fmt.Print(" -c: (uint var) the number of users smacking (concurrency)\n")
+  fmt.Print(" -r: (bool flag) if specified, will pick a random url from those specified for each request\n")
+  fmt.Print(" -v: (bool flag) if specified, will output more information. useful for debugging but hinders performance\n")
+  fmt.Print(" -p: (bool flag) if specified, smack will panic if an error (not bad http status) occurs while trying to request a url\n")
+  fmt.Printf("e.g. \"%s -n 10000 -c 100 -r /tmp/urls.txt\" will smack the urls in /tmp/urls.txt randomly for a total number of 10000 requests with 100 users smacking at a time.\n", os.Args[0])
 }
 
 func main() {
