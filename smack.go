@@ -385,7 +385,7 @@ func main() {
   resultCh <- &Result{done: true}
   <-resultDoneCh
   Info("")
-  Info("requests took %f seconds", (float64(totalT)/1000000000.0))
+  Info("requests took %f seconds", (float64(totalT) / 1000000000.0))
   Info("%f requests/sec", float64(numRequests)/(float64(totalT)/1000000000.0))
   close(resultCh)
   close(resultDoneCh)
