@@ -7,6 +7,7 @@ Web Server Benchmark Tool
 smack [options] (url|file)+
 (url|file)+: a space separated list of urls and/or files containing a newline separated list of urls
 options:
+ -t: (int var) the number of seconds to continue smacking. if this is specified, -n is ignored
  -n: (uint var) the total number of smacks
  -c: (uint var) the number of users smacking (concurrency)
  -r: (bool flag) if specified, will pick a random url from those specified for each request
