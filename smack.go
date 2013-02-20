@@ -10,6 +10,7 @@ import (
   "math/rand"
   "net/http"
   "os"
+  "regexp"
   "runtime"
   "sort"
   "strings"
@@ -23,9 +24,11 @@ type Options struct {
   urls   []string
   random bool
   die    bool
+  v      bool
 }
 
 var verbose = false
+var URL_REGEX = regexp.MustCompile("http://[^:]+")
 
 func Info(format string, a ...interface{}) {
   fmt.Printf(format+"\n", a...)
@@ -173,7 +176,7 @@ func createPrintableResult(slice []*Result) *PrintableResult {
   return &pr
 }
 
-func printResults(results map[int][]*Result) {
+func printResults(opts *Options, results map[int][]*Result) {
   // compute results
   Info("")
   for key, slice := range results {
@@ -185,11 +188,16 @@ func printResults(results map[int][]*Result) {
       Info("  combined time : %f ms", pr.totalT/1000000.0)
       counts := make(map[string]uint64)
       for _, result := range slice {
-        count, ok := counts[result.err.Error()]
+        errName := bytes.NewBufferString(result.err.Error())
+        if !opts.v {
+          errName = bytes.NewBuffer(URL_REGEX.ReplaceAll(errName.Bytes(), []byte{}))
+        }
+        errNameStr := errName.String()
+        count, ok := counts[errNameStr]
         if !ok {
-          counts[result.err.Error()] = 1
+          counts[errNameStr] = 1
         } else {
-          counts[result.err.Error()] = count + 1
+          counts[errNameStr] = count + 1
         }
       }
       for err, count := range counts {
@@ -234,7 +242,7 @@ func results(opts *Options, result chan *Result, done chan bool) {
   for {
     res := <-result
     if res.done {
-      printResults(results)
+      printResults(opts, results)
       done <- true
       return
     }
@@ -338,6 +346,7 @@ func main() {
     flag.Usage()
     Fatal("ERROR: no urls or files specified")
   }
+  opts.v = verbose
   Info("Preparing Smacker...")
   urlsOrFiles := flag.Args()
   opts.urls = []string{}
@@ -363,19 +372,20 @@ func main() {
   go urls(&opts, urlsCh)
   go results(&opts, resultCh, resultDoneCh)
   go counter(&opts, counterCh, counterDoneCh)
-  Info("Smacking things...")
+  Info("Smacking Things...")
   beginT := time.Now().UnixNano()
   for i := uint64(0); i < opts.c; i++ {
     go user(&opts, i, counterCh, resultCh, urlsCh)
   }
   numRequests := <-counterDoneCh
   totalT := time.Now().UnixNano() - beginT
+  Info("Formatting Results...")
   close(counterCh)
   close(counterDoneCh)
   resultCh <- &Result{done: true}
   <-resultDoneCh
   Info("")
-  Info("requsts took %f seconds", (float64(totalT) / 1000000000.0))
+  Info("requests took %f seconds", (float64(totalT)/1000000000.0))
   Info("%f requests/sec", float64(numRequests)/(float64(totalT)/1000000000.0))
   close(resultCh)
   close(resultDoneCh)
