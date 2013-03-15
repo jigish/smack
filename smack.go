@@ -21,6 +21,7 @@ type Options struct {
   t      int64
   n      uint64
   c      uint64
+  repeat uint64
   urls   []string
   random bool
   die    bool
@@ -337,6 +338,7 @@ func main() {
   flag.Uint64Var(&opts.n, "n", uint64(1), "number of requests")
   flag.Int64Var(&opts.t, "t", int64(0), "number of seconds to smack")
   flag.Uint64Var(&opts.c, "c", uint64(1), "concurrency")
+  flag.Uint64Var(&opts.repeat, "repeat", uint64(1), "number of times to repeat the smacking")
   flag.BoolVar(&opts.random, "r", false, "randomize the urls")
   flag.BoolVar(&verbose, "v", false, "verbose (hinders performance numbers)")
   flag.BoolVar(&opts.die, "p", false, "panic if error")
@@ -364,29 +366,32 @@ func main() {
     }
   }
 
-  counterCh := make(chan chan bool)
-  counterDoneCh := make(chan uint64)
-  resultCh := make(chan *Result)
-  resultDoneCh := make(chan bool)
   urlsCh := make(chan string)
   go urls(&opts, urlsCh)
-  go results(&opts, resultCh, resultDoneCh)
-  go counter(&opts, counterCh, counterDoneCh)
-  Info("Smacking Things...")
-  beginT := time.Now().UnixNano()
-  for i := uint64(0); i < opts.c; i++ {
-    go user(&opts, i, counterCh, resultCh, urlsCh)
+
+  for i := uint64(0); i < opts.repeat; i++ {
+    counterCh := make(chan chan bool)
+    counterDoneCh := make(chan uint64)
+    resultCh := make(chan *Result)
+    resultDoneCh := make(chan bool)
+    go results(&opts, resultCh, resultDoneCh)
+    go counter(&opts, counterCh, counterDoneCh)
+    Info("Smacking Things...")
+    beginT := time.Now().UnixNano()
+    for i := uint64(0); i < opts.c; i++ {
+      go user(&opts, i, counterCh, resultCh, urlsCh)
+    }
+    numRequests := <-counterDoneCh
+    totalT := time.Now().UnixNano() - beginT
+    Info("Formatting Results...")
+    close(counterCh)
+    close(counterDoneCh)
+    resultCh <- &Result{done: true}
+    <-resultDoneCh
+    Info("")
+    Info("requests took %f seconds", (float64(totalT) / 1000000000.0))
+    Info("%f requests/sec", float64(numRequests)/(float64(totalT)/1000000000.0))
+    close(resultCh)
+    close(resultDoneCh)
   }
-  numRequests := <-counterDoneCh
-  totalT := time.Now().UnixNano() - beginT
-  Info("Formatting Results...")
-  close(counterCh)
-  close(counterDoneCh)
-  resultCh <- &Result{done: true}
-  <-resultDoneCh
-  Info("")
-  Info("requests took %f seconds", (float64(totalT) / 1000000000.0))
-  Info("%f requests/sec", float64(numRequests)/(float64(totalT)/1000000000.0))
-  close(resultCh)
-  close(resultDoneCh)
 }
