@@ -320,10 +320,9 @@ func usage() {
   fmt.Printf("%s [options] (url|file)+\n", os.Args[0])
   fmt.Print("(url|file)+: a space separated list of urls and/or files containing a newline separated list of urls\n")
   fmt.Print("options:\n")
-  fmt.Print(" -t: (int var) the number of seconds to continue smacking. if this is specified, -n is ignored\n")
-  fmt.Print(" -n: (uint var) the total number of smacks (per repetition)\n")
   fmt.Print(" -c: (uint var) the number of users smacking (concurrency)\n")
-  fmt.Print(" -repeat: (uint var) the number of times to repeat the smacking (repetitions)\n")
+  fmt.Print(" -t: (int var) the number of seconds to continue smacking.\n")
+  fmt.Print(" -n: (uint var) the total number of smacks (or number of repetitions if -t is used)\n")
   fmt.Print(" -r: (bool flag) if specified, will pick a random url from those specified for each request\n")
   fmt.Print(" -v: (bool flag) if specified, will output more information. useful for debugging but hinders performance\n")
   fmt.Print(" -p: (bool flag) if specified, smack will panic if an error (not bad http status) occurs while trying to request a url\n")
@@ -336,10 +335,9 @@ func main() {
 
   // parse flags
   opts := Options{}
-  flag.Uint64Var(&opts.n, "n", uint64(1), "number of requests")
+  flag.Uint64Var(&opts.n, "n", uint64(1), "number of requests or repetitions")
   flag.Int64Var(&opts.t, "t", int64(0), "number of seconds to smack")
   flag.Uint64Var(&opts.c, "c", uint64(1), "concurrency")
-  flag.Uint64Var(&opts.repeat, "repeat", uint64(1), "number of times to repeat the smacking")
   flag.BoolVar(&opts.random, "r", false, "randomize the urls")
   flag.BoolVar(&verbose, "v", false, "verbose (hinders performance numbers)")
   flag.BoolVar(&opts.die, "p", false, "panic if error")
@@ -366,6 +364,11 @@ func main() {
       }
     }
   }
+  if opts.t > 0 {
+    opts.repeat = opts.n
+  } else {
+    opts.repeat = 1
+  }
 
   urlsCh := make(chan string)
   go urls(&opts, urlsCh)
@@ -377,6 +380,7 @@ func main() {
     resultDoneCh := make(chan bool)
     go results(&opts, resultCh, resultDoneCh)
     go counter(&opts, counterCh, counterDoneCh)
+    Info("\n-------- Run %d --------", i+1)
     Info("Smacking Things...")
     beginT := time.Now().UnixNano()
     for i := uint64(0); i < opts.c; i++ {
