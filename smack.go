@@ -56,9 +56,9 @@ type Result struct {
   size   int
 }
 
-func smack(url string, die bool) (bool, int64, int, int, error) {
+func smack(client *http.Client, url string, die bool) (bool, int64, int, int, error) {
   beginT := time.Now().UnixNano()
-  resp, err := http.Get(url)
+  resp, err := client.Get(url)
   if err != nil {
     totalT := time.Now().UnixNano() - beginT
     Verbose("ERROR: could not hit " + url + " - " + err.Error())
@@ -275,6 +275,9 @@ func urls(opts *Options, out chan string) {
 }
 
 func user(opts *Options, num uint64, counter chan chan bool, res chan *Result, urls chan string) {
+  client := &http.Client{
+	  Transport: &http.Transport{},
+  }
   ch := make(chan bool)
   for {
     counter <- ch
@@ -283,7 +286,7 @@ func user(opts *Options, num uint64, counter chan chan bool, res chan *Result, u
       close(ch)
       return
     }
-    ok, t, status, size, err := smack(<-urls, opts.die)
+    ok, t, status, size, err := smack(client, <-urls, opts.die)
     res <- &Result{done: false, ok: ok, t: t, status: status, size: size, err: err}
   }
 }
